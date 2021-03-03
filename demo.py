@@ -1,33 +1,15 @@
-"""
-The MIT License (MIT)
-
-Copyright (c) 2017 Marvin Teichmann
-"""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import sys
-
-import numpy as np
-import imageio
-# import scipy as scp
-# import scipy.misc
-
-import argparse
-
-import logging
 import time
-
-from convcrf import convcrf
-
 import torch
-from torch.autograd import Variable
-
-from utils import pascal_visualizer as vis
+import imageio
+import logging
+import argparse
+import numpy as np
 from utils import synthetic
+from convcrf import convcrf
+from torch.autograd import Variable
+from utils import pascal_visualizer as vis
 
 try:
     import matplotlib.pyplot as plt
@@ -38,9 +20,7 @@ except:
     matplotlib = False
     pass
 
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
-                    level=logging.INFO,
-                    stream=sys.stdout)
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO, stream=sys.stdout)
 
 
 def do_crf_inference(image, unary, args):
@@ -90,11 +70,10 @@ def do_crf_inference(image, unary, args):
     logging.info("Build ConvCRF.")
     ##
     # Create CRF module
-    gausscrf = convcrf.GaussCRF(conf=config, shape=shape, nclasses=num_classes,
-                                use_gpu=not args.cpu)
+    gausscrf = convcrf.GaussCRF(conf=config, shape=shape, nclasses=num_classes)
 
     # move to GPU if requested
-    if not args.cpu:
+    if torch.cuda.is_available():
         img_var = img_var.cuda()
         unary_var = unary_var.cuda()
         gausscrf.cuda()
@@ -191,54 +170,32 @@ def plot_results(image, unary, prediction, label, args):
 
 def get_parser():
     from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-    parser = ArgumentParser(description=__doc__,
-                            formatter_class=ArgumentDefaultsHelpFormatter)
+    parser = ArgumentParser(description=__doc__, formatter_class=ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-image", type=str, default="data/2007_001288_0img.png", help="input image")
+    parser.add_argument("-label", type=str, default="data/2007_001288_5labels.png", help="Label file.")
 
-    parser.add_argument("image", type=str,
-                        help="input image")
-
-    parser.add_argument("label", type=str,
-                        help="Label file.")
-
-    parser.add_argument("--gpu", type=str, default='0',
-                        help="which gpu to use")
-
-    parser.add_argument('--output', type=str,
-                        help="Optionally save output as img.")
-
-    parser.add_argument('--nospeed', action='store_false',
-                        help="Skip speed evaluation.")
-
-    parser.add_argument('--normalize', action='store_true',
-                        help="Normalize input image before inference.")
-
-    parser.add_argument('--pyinn', action='store_true',
-                        help="Use pyinn based Cuda implementation"
-                             "for message passing.")
-
-    parser.add_argument('--cpu', action='store_true',
-                        help="Run on CPU instead of GPU.")
-
-    # parser.add_argument('--compare', action='store_true')
-    # parser.add_argument('--embed', action='store_true')
-
-    # args = parser.parse_args()
-
-    return parser
+    parser.add_argument("--gpu", type=str, default='0', help="which gpu to use")
+    parser.add_argument('--output', type=str, help="Optionally save output as img.")
+    parser.add_argument('--nospeed', action='store_false', help="Skip speed evaluation.")
+    parser.add_argument('--normalize', action='store_true', help="Normalize input image before inference.")
+    parser.add_argument('--pyinn', action='store_true', help="Use pyinn based Cuda implementation for message passing.")
+    args = parser.parse_args()
+    return args
 
 
 if __name__ == '__main__':
-    parser = get_parser()
-    args = parser.parse_args()
+    args = get_parser()
 
     # Load data
     image = imageio.imread(args.image)
     label = imageio.imread(args.label)
 
     # Produce unary by adding noise to label
-    unary = synthetic.augment_label(label, num_classes=21)
+    unary = synthetic.augment_label(label, num_classes=2)
     # Compute CRF inference
     prediction = do_crf_inference(image, unary, args)
     # Plot output
     plot_results(image, unary, prediction, label, args)
     logging.info("Thank you for trying ConvCRFs.")
+
+    pass
